@@ -3,7 +3,7 @@
 // List all group members' names:
 // Emmett Duffy
 // Allen Davis-Swing
-// Adriennne [REDACTED]
+// Adriennne Yu 
 // iLab machine tested on:
 
 #include "mypthread.h"
@@ -12,9 +12,9 @@
 // YOUR CODE HERE
 
 // a thread_id of 0 means that we are the scheduler
-int next_id = 0;
-node* ready_queue = NULL;
-node* current;
+static int next_id = 0;
+static node* ready_queue = NULL;
+static node* current;
 
 /* stuff for queues */
 void print() {
@@ -80,6 +80,7 @@ int mypthread_create(mypthread_t* thread, pthread_attr_t* attr,
   // YOUR CODE HERE
   if (next_id == 0) {
     // we are the main thread here
+    // the routine that we run will be the scheduler
     char stack[1024];
     tcb* new_thread_entry = malloc(sizeof(tcb));
     new_thread_entry->mypthread_id = next_id++;
@@ -91,6 +92,7 @@ int mypthread_create(mypthread_t* thread, pthread_attr_t* attr,
     new_thread_entry->context.uc_stack.ss_size = sizeof(stack);
     makecontext(&(new_thread_entry->context), NULL, 0);
     printf("here\n");
+    // doesn't return since you have to make another thread
   }
   // create a Thread Control Block
   // assumes that the head of the queue is defined
