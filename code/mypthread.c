@@ -16,6 +16,10 @@ static int next_id = 0;
 static node* ready_queue = NULL;
 static node* current;
 
+void timerhandler() {
+  swapcontext(currentContext, schedulerContext);
+}
+
 /* stuff for queues */
 void print() {
   node* prev = NULL;
@@ -201,7 +205,8 @@ static void schedule() {
   // be sure to check the SCHED definition to determine which scheduling
   // algorithm you should run
   //   i.e. RR, PSJF or MLFQ
-
+  // if there are no entries on the TCB linked list return?
+  swapcontext(schedulerContext, nextContext);
   return;
 }
 
