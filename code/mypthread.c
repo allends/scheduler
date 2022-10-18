@@ -70,11 +70,7 @@ void insert_tail(tcb* entry) {
 }
 
 int enqueue(node* new_node) {
-  if (next_id > 3) {
-    insert_tail(new_node->entry);
-    return 0;
-  }
-  insert_head(new_node->entry);
+  insert_tail(new_node->entry);
   return 0;
 }
 
@@ -108,6 +104,8 @@ int mypthread_create(mypthread_t* thread, pthread_attr_t* attr,
   getcontext(&(new_thread_entry->context));
   new_thread_entry->context.uc_stack.ss_sp = stack;
   new_thread_entry->context.uc_stack.ss_size = sizeof(stack);
+  // set the uc_link to the main thread
+  // save a pointer to the tcb of the scheduler
   makecontext(&(new_thread_entry->context), function, 0);
 
   node* new_node = malloc(sizeof(node));
