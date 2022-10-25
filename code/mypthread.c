@@ -17,7 +17,6 @@ static node* ready_queue = NULL;
 static node* current;
 
 void timerhandler() {
-  swapcontext(currentContext, schedulerContext);
 }
 
 /* stuff for queues */
@@ -59,7 +58,7 @@ void insert_tail(tcb* entry) {
 
   // find the last node in the list + point to it here
   node* curr = ready_queue;
-  node* prev = NULL;
+  node* prev = ready_queue;
   int count = 0;
   while (curr != NULL) {
     prev = curr;
@@ -83,6 +82,7 @@ int mypthread_create(mypthread_t* thread, pthread_attr_t* attr,
     // the routine that we run will be the scheduler
     char stack[1024];
     tcb* new_thread_entry = malloc(sizeof(tcb));
+    printf("%d\n", next_id);
     new_thread_entry->mypthread_id = next_id++;
     new_thread_entry->mypthread_priority = 0;
     new_thread_entry->mypthread_status = 0;
@@ -91,8 +91,9 @@ int mypthread_create(mypthread_t* thread, pthread_attr_t* attr,
     new_thread_entry->context.uc_stack.ss_sp = stack;
     new_thread_entry->context.uc_stack.ss_size = sizeof(stack);
     makecontext(&(new_thread_entry->context), NULL, 0);
-    printf("here\n");
     // doesn't return since you have to make another thread
+    new_node->entry = new_thread_entry;
+    insert_head(new_thread_entry);
   }
   // create a Thread Control Block
   // assumes that the head of the queue is defined
@@ -101,6 +102,7 @@ int mypthread_create(mypthread_t* thread, pthread_attr_t* attr,
   new_thread_entry->mypthread_id = next_id++;
   new_thread_entry->mypthread_priority = 0;
   new_thread_entry->mypthread_status = 0;
+
   getcontext(&(new_thread_entry->context));
   new_thread_entry->context.uc_stack.ss_sp = stack;
   new_thread_entry->context.uc_stack.ss_size = sizeof(stack);
@@ -204,7 +206,6 @@ static void schedule() {
   // algorithm you should run
   //   i.e. RR, PSJF or MLFQ
   // if there are no entries on the TCB linked list return?
-  swapcontext(schedulerContext, nextContext);
   return;
 }
 
@@ -241,17 +242,3 @@ static void sched_MLFQ() {
 
 // Feel free to add any other functions you need
 
-// YOUR CODE HERE
-int main() {
-  // test create thread here
-  mypthread_t test = 0;
-  pthread_attr_t* attr = NULL;
-  mypthread_create(&test, attr, NULL, NULL);
-  mypthread_create(&test, attr, NULL, NULL);
-  mypthread_create(&test, attr, NULL, NULL);
-  mypthread_create(&test, attr, NULL, NULL);
-  mypthread_create(&test, attr, NULL, NULL);
-  mypthread_create(&test, attr, NULL, NULL);
-
-  print();
-}

@@ -9,7 +9,7 @@
 #define _GNU_SOURCE
 
 /* in order to use the built-in Linux pthread library as a control for benchmarking, you have to comment the USE_MYTHREAD macro */
-#define USE_MYTHREAD 1
+// #define USE_MYTHREAD 1
 
 /* include lib header files that you need here: */
 #include <unistd.h>
@@ -64,6 +64,8 @@ int mypthread_create(mypthread_t * thread, pthread_attr_t * attr, void *(*functi
 
 /* current thread voluntarily surrenders its remaining runtime for other threads to use */
 int mypthread_yield();
+
+void print();
 
 /* terminate a thread */
 void mypthread_exit(void *value_ptr);

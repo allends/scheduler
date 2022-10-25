@@ -13,6 +13,11 @@
 int main(int argc, char **argv) {
 
 	/* Implement HERE */
+	mypthread_t test = 0;
+  pthread_attr_t* attr = NULL;
+  mypthread_create(&test, attr, NULL, NULL);
+	mypthread_create(&test, attr, NULL, NULL);
 
+	print();
 	return 0;
 }
