@@ -17,6 +17,9 @@ static node* ready_queue = NULL;
 static node* current;
 
 void timerhandler() {
+  ucontext_t current_context;
+  getcontext(&current_context);
+  swapcontext(&current_context, &ready_queue->entry->context);
 }
 
 /* stuff for queues */
@@ -77,6 +80,9 @@ int enqueue(node* new_node) {
 int mypthread_create(mypthread_t* thread, pthread_attr_t* attr,
                      void* (*function)(void*), void* arg) {
   // YOUR CODE HERE
+  ucontext_t current_context;
+  getcontext(&current_context);
+  signal(SIGALRM, timerhandler);
   if (next_id == 0) {
     // we are the main thread here
     // the routine that we run will be the scheduler
@@ -90,9 +96,9 @@ int mypthread_create(mypthread_t* thread, pthread_attr_t* attr,
     getcontext(&(new_thread_entry->context));
     new_thread_entry->context.uc_stack.ss_sp = stack;
     new_thread_entry->context.uc_stack.ss_size = sizeof(stack);
-    makecontext(&(new_thread_entry->context), NULL, 0);
+    new_thread_entry->context.uc_link = &current_context;
+    makecontext(&(new_thread_entry->context), schedule, 0);
     // doesn't return since you have to make another thread
-    new_node->entry = new_thread_entry;
     insert_head(new_thread_entry);
   }
   // create a Thread Control Block
@@ -107,6 +113,7 @@ int mypthread_create(mypthread_t* thread, pthread_attr_t* attr,
   new_thread_entry->context.uc_stack.ss_sp = stack;
   new_thread_entry->context.uc_stack.ss_size = sizeof(stack);
   // set the uc_link to the main thread
+  new_thread_entry->context.uc_link = &ready_queue->entry->context;
   // save a pointer to the tcb of the scheduler
   makecontext(&(new_thread_entry->context), function, 0);
 
@@ -117,7 +124,7 @@ int mypthread_create(mypthread_t* thread, pthread_attr_t* attr,
   // create and initialize the context of this thread
   // allocate heap space for this thread's stack
   // after everything is all set, push this thread into the ready queue
-
+  swapcontext(&current_context, &ready_queue->entry->context);
   return 0;
 };
 
@@ -198,10 +205,37 @@ int mypthread_mutex_destroy(mypthread_mutex_t* mutex) {
 /* scheduler */
 static void schedule() {
   // YOUR CODE HERE
-
+  printf("the scheduler is running\n");
   // each time a timer signal occurs your library should switch in to this
   // context
-
+  ucontext_t current_context;
+  getcontext(&current_context);
+  node* prev = NULL;
+  node* curr = ready_queue;
+  while (curr != NULL) {
+    if (curr->entry == NULL) {
+      printf("null and returning \n");
+      return;
+    }
+    if (curr->entry->mypthread_id == 0) {
+      prev = curr;
+      curr = curr->next;
+      continue;
+    }
+    struct itimerval timer;
+     /* Configure the timer to expire after 250 msec... */
+    timer.it_value.tv_sec = 0;
+    timer.it_value.tv_usec = 250000;
+    /* ... and every 250 msec after that. */
+    timer.it_interval.tv_sec = 0;
+    timer.it_interval.tv_usec = 250000;
+    /* Start a virtual timer. It counts down whenever this process is
+    executing. */
+ setitimer (ITIMER_VIRTUAL, &timer, NULL);
+    swapcontext(&current_context, &curr->entry->context);
+    prev = curr;
+    curr = curr->next;
+  }
   // be sure to check the SCHED definition to determine which scheduling
   // algorithm you should run
   //   i.e. RR, PSJF or MLFQ
