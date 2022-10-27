@@ -5,10 +5,13 @@ RANLIB = ranlib
 
 SCHED = RR
 
-all: mypthread.a
+all: queue.o mypthread.a
 
-mypthread.a: mypthread.o
-	$(AR) libmypthread.a mypthread.o
+queue.o: queue.h
+	$(CC) $(CFLAGS) queue.c
+
+mypthread.a: mypthread.o queue.o
+	$(AR) libmypthread.a mypthread.o queue.o
 	$(RANLIB) libmypthread.a
 
 mypthread.o: mypthread.h

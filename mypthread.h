@@ -20,6 +20,7 @@
 #include <ucontext.h>
 #include <sys/time.h>
 #include <signal.h>
+#include <limits.h>
 
 typedef uint mypthread_t;
 
@@ -56,7 +57,6 @@ typedef struct mypthread_mutex_t
 
 
 // Feel free to add your own auxiliary data structures (linked list or queue etc...)
-
 
 
 /* Function Declarations: */
