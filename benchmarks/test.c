@@ -48,8 +48,9 @@ int main(int argc, char **argv) {
 	mypthread_create(&thread3, NULL, function3, NULL);
 	
 	printf("calling join \n");
-	mypthread_join(thread1, NULL);
+	mypthread_join(thread3, NULL);
 	mypthread_join(thread2, NULL);
+	mypthread_join(thread1, NULL);
 	
 	printf("returning from test bench :) \n");
 	return 0;

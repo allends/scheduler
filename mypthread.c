@@ -103,9 +103,12 @@ int mypthread_join(mypthread_t thread, void **value_ptr) {
   // YOUR CODE HERE
 
   tcb* target = tcb_by_id(ready_queue,(uint) thread);
-  printf("found: %d \n", target->id);
+  
+  if (target != NULL) {
+    waiting = target->id;
+    printf("found: %d \n", target->id);
+  }
 
-  waiting = target->id;
 
   setcontext(&scheduler->context);
   // deallocate any dynamic memory created by the joining thread
