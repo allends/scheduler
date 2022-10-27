@@ -9,65 +9,64 @@
 #define _GNU_SOURCE
 
 /* in order to use the built-in Linux pthread library as a control for benchmarking, you have to comment the USE_MYTHREAD macro */
-// #define USE_MYTHREAD 1
+#define USE_MYTHREAD 1
 
 /* include lib header files that you need here: */
 #include <unistd.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
-#include <ucontext.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h>
-#include <signal.h>
+#include <ucontext.h>
 #include <sys/time.h>
 
 typedef uint mypthread_t;
+
+typedef enum thread_status{
+	UNUSED, READY, BLOCKED, RUNNING, DONE
+} thread_status;
 
 	/* add important states in a thread control block */
 typedef struct threadControlBlock
 {
 	// YOUR CODE HERE	
-  int mypthread_id;
-  int mypthread_priority;
-  int mypthread_timesrun;
-  int mypthread_status;
-  ucontext_t context;
-  // status = 0 > ready 
-  // status = 1 > running 
-  // status = 2 > waiting
-
-  // Still left to consider
+	
+	// thread Id
+	int id;
+	// thread status
+	thread_status status;
 	// thread context
+	ucontext_t context;
+	// thread stack
+	char stack[1024];
 	// thread priority
+	int priority;
+	// And more ...
+
 } tcb;
 
 /* mutex struct definition */
 typedef struct mypthread_mutex_t
 {
+
 	// YOUR CODE HERE
+	
 } mypthread_mutex_t;
 
 
 // Feel free to add your own auxiliary data structures (linked list or queue etc...)
 
-typedef struct node {
-  tcb* entry;
-  struct node* next;
-} node;
+
 
 /* Function Declarations: */
-
-/* Scheduler Routine */
 static void schedule();
+static void sched_RR();
 
 /* create a new thread */
 int mypthread_create(mypthread_t * thread, pthread_attr_t * attr, void *(*function)(void*), void * arg);
 
 /* current thread voluntarily surrenders its remaining runtime for other threads to use */
 int mypthread_yield();
-
-void print();
 
 /* terminate a thread */
 void mypthread_exit(void *value_ptr);
@@ -100,4 +99,3 @@ int mypthread_mutex_destroy(mypthread_mutex_t *mutex);
 #endif
 
 #endif
-
