@@ -13,19 +13,26 @@ static tcb* threads[NUM_THREADS];
 static tcb* active;
 static tcb* scheduler;
 static ucontext_t save;
+static uint current_id = 0;
+
+void switch_to_scheduler() {
+  printf("preempted by signal handler\n");
+  swapcontext(&active->context, &scheduler->context);
+}
 
 /* create a new thread */
 int mypthread_create(mypthread_t *thread, pthread_attr_t *attr,
                      void *(*function)(void *), void *arg) {
   // YOUR CODE HERE
+  signal(SIGALRM, switch_to_scheduler);
+
 	if (scheduler == NULL) {
-    printf("scheduler created \n");
     tcb *new_tcb = malloc(sizeof(tcb));
     getcontext(&new_tcb->context);
     new_tcb->context.uc_stack.ss_sp = new_tcb->stack;
 	  new_tcb->context.uc_stack.ss_size = sizeof(new_tcb->stack);
-    makecontext(&new_tcb->context, schedule, 1, arg);
-    active = new_tcb;
+    new_tcb->id = 69;
+    makecontext(&new_tcb->context, schedule, 0);
     scheduler = new_tcb;
   }
 
@@ -36,27 +43,27 @@ int mypthread_create(mypthread_t *thread, pthread_attr_t *attr,
   // allocate heap space for this thread's stack
 	new_tcb->context.uc_stack.ss_sp = new_tcb->stack;
 	new_tcb->context.uc_stack.ss_size = sizeof(new_tcb->stack);
+  new_tcb->context.uc_link = &scheduler->context;
+  *thread = current_id;
+  new_tcb->id = current_id++;
 	makecontext(&new_tcb->context, function, 1, arg);
+  
+  // TODO: change this to a queue
   // after everything is all set, push this thread into the ready queue
 	for(int i=0; i<NUM_THREADS; i++) {
     // finding a place to put the tcb entry
 		if (threads[i] == NULL || threads[i]->status == UNUSED) {
 			threads[i] = new_tcb;
-			threads[i]->status = RUNNING;
+			threads[i]->status = READY;
       active = threads[i];
 	    printf("new tcb made and adding \n");
 			break;
 		}
-
-    // if a thread is running, block it
-    if (threads[i]->status == RUNNING) {
-      threads[i]->status = BLOCKED;
-    }
 	}
 
   // switch to the schedulers thread
   swapcontext(&save, &scheduler->context);
-  printf("returning here\n");
+  printf("returning from mypthread_create\n");
   return 0;
 };
 
@@ -68,11 +75,8 @@ int mypthread_yield() {
   // change current thread's state from Running to Ready
   // save context of this thread to its thread control block
   // switch from this thread's context to the scheduler's context
-  ucontext_t current;
-  getcontext(&current);
-  active->context = current;
-
-
+  printf("yielding and going back to scheduler \n");
+  swapcontext(&active->context, &scheduler->context);
   return 0;
 };
 
@@ -82,7 +86,14 @@ void mypthread_exit(void *value_ptr) {
 
   // preserve the return value pointer if not NULL
   // deallocate any dynamic memory allocated when starting this thread
+  if (active == NULL) {
+    setcontext(&scheduler->context);
+  }
 
+  active->status = UNUSED;
+  active = NULL;
+  printf("going back to the scheduler \n");
+  setcontext(&scheduler->context);
   return;
 };
 
@@ -91,8 +102,15 @@ int mypthread_join(mypthread_t thread, void **value_ptr) {
   // YOUR CODE HERE
 
   // wait for a specific thread to terminate
+  printf("active context id %d - wait on %d \n", active->id, thread);
+  int index = 0;
+  for (index = 0; index < NUM_THREADS; index++) {
+    if (threads[index] != NULL && threads[index]->id == thread) break;
+  }
+  active = threads[index];
+  printf("starting to wait on %d \n", active->id);
+  setcontext(&active->context);
   // deallocate any dynamic memory created by the joining thread
-
   return 0;
 };
 
@@ -149,9 +167,8 @@ static void schedule() {
   // algorithm you should run
   //   i.e. RR, PSJF or MLFQ
   while (1) {
-  sched_RR();
-  printf("swapping contexts\n");
-  swapcontext(&scheduler->context, &save);
+    sched_RR();
+    swapcontext(&scheduler->context, &save);
   }
 }
 
@@ -163,8 +180,31 @@ static void sched_RR() {
   // (feel free to modify arguments and return types)
 
   // set itimer
-  setitimer(ITIMER_REAL, NULL, NULL);
+  struct itimerval timer;
+  timer.it_value.tv_usec = 100;
+  timer.it_value.tv_sec = 0;
+  timer.it_interval.tv_sec = 0;
+  timer.it_interval.tv_usec = 0;
+
+  setitimer(ITIMER_REAL, &timer, NULL);
+
+  if (active == NULL) {
+    for (int i = 0; i < NUM_THREADS; i++) {
+      if (threads[i] != NULL && threads[i]->status == READY) {
+        threads[i]->status = RUNNING;
+        active = threads[i];
+      }
+    }
+  }
+
+  if (active == NULL) {
+    return;
+  }
+
   // swap context to thread
+  printf("switching to %d \n", active->id);
+  swapcontext(&scheduler->context, &active->context);
+  printf("back to this context\n");
   // return to here
   // block thread
 }
