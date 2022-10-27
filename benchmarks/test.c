@@ -18,9 +18,10 @@ int main(int argc, char **argv) {
 
 	/* Implement HERE */
 	mypthread_t thread;
+	mypthread_create(&thread, function, NULL, NULL);
 	mypthread_create(&thread, NULL, NULL, NULL);
-	mypthread_create(&thread, NULL, NULL, NULL);
-
-	printf("finished \n");
+	
+	
+	printf("returning 0 \n");
 	return 0;
 }

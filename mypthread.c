@@ -44,6 +44,7 @@ int mypthread_create(mypthread_t *thread, pthread_attr_t *attr,
 			threads[i] = new_tcb;
 			threads[i]->status = RUNNING;
       active = threads[i];
+	    printf("new tcb made and adding \n");
 			break;
 		}
 
@@ -55,7 +56,7 @@ int mypthread_create(mypthread_t *thread, pthread_attr_t *attr,
 
   // switch to the schedulers thread
   swapcontext(&save, &scheduler->context);
-
+  printf("returning here\n");
   return 0;
 };
 
@@ -147,10 +148,11 @@ static void schedule() {
   // be sure to check the SCHED definition to determine which scheduling
   // algorithm you should run
   //   i.e. RR, PSJF or MLFQ
+  while (1) {
   sched_RR();
   printf("swapping contexts\n");
   swapcontext(&scheduler->context, &save);
-  return;
+  }
 }
 
 /* Round Robin scheduling algorithm */
