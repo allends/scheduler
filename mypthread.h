@@ -42,7 +42,13 @@ typedef struct threadControlBlock
 	char stack[65536];
 	// thread priority
 	int quantums_run;
-	// And more ...
+
+
+	//MAYBE: 
+	// nonzero if any thread called join on this one
+	uint waiting_id; 
+	// exit status of thread that this one called join on
+	int joined_status; 
 
 } tcb;
 
@@ -67,7 +73,7 @@ static void sched_RR();
 int mypthread_create(mypthread_t * thread, pthread_attr_t * attr, void *(*function)(void*), void * arg);
 
 /* current thread voluntarily surrenders its remaining runtime for other threads to use */
-int mypthread_yield();
+void mypthread_yield();
 
 /* terminate a thread */
 void mypthread_exit(void *value_ptr);

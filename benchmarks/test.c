@@ -37,6 +37,11 @@ void function3() {
 	mypthread_exit(NULL);
 }
 
+void test_mutex(){
+
+}
+
+
 int main(int argc, char **argv) {
 
 	/* Implement HERE */
