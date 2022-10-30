@@ -21,7 +21,6 @@
 #include <sys/time.h>
 #include <signal.h>
 #include <limits.h>
-#include "queue.h"
 
 typedef uint mypthread_t;
 

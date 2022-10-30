@@ -20,15 +20,25 @@ static struct Queue* ready_queue;
 static int thread_count = 0; // number of threads created
 
 void switch_to_scheduler() {
+  if (active == NULL) {
+    swapcontext(&main, &scheduler->context);
+  }
   if(DEBUG){
     printf("preempted by signal handler\n");
+    print(ready_queue);
     printf("scheduling %d \n", active->id);
   }
+
+  if (tcb_by_id(ready_queue, active->id) != NULL) {
+    swapcontext(&active->context, &scheduler->context);
+  } 
+
   //set status of current thread to READY if it was running
   //otherwise, (if BLOCKED), don't override status
   if(active->status == RUNNING){
     active->status = READY; 
   }
+  active->status = READY; 
   enqueue(ready_queue, active); //add this to the end of the queue
   swapcontext(&active->context, &scheduler->context);
 }
@@ -66,13 +76,14 @@ int mypthread_create(mypthread_t *thread, pthread_attr_t *attr,
   
   // TODO: change this to a queue
   // after everything is all set, push this thread into the ready queue
+  enqueue(ready_queue, new_tcb);
   if(DEBUG){
     printf("scheduling %d \n", new_tcb->id);
+    print(ready_queue);
   }
-  enqueue(ready_queue, new_tcb);
 
   // switch to the schedulers thread
-  swapcontext(&main, &scheduler->context); 
+  // swapcontext(&main, &scheduler->context); 
   if(DEBUG){
     printf("returning from mypthread_create\n");
   }
@@ -95,10 +106,6 @@ void mypthread_yield() {
 void mypthread_exit(void *value_ptr) {
   // preserve the return value pointer if not NULL
   // deallocate any dynamic memory allocated when starting this thread
-
-  if (active == NULL) {
-    setcontext(&scheduler->context);
-  }
 
   // waiting should be specific to a thread, since multiple threads could call join right??
   if (active->id == waiting) {
@@ -132,7 +139,6 @@ int mypthread_join(mypthread_t thread, void **value_ptr) {
 
   }
   switch_to_scheduler(); 
-  setcontext(&scheduler->context);
   // deallocate any dynamic memory created by the joining thread
   return 0;
 };
@@ -216,6 +222,7 @@ static void schedule() {
     }
 
     if (!waiting) {
+      printf("going back cause not waiting on anything \n");
       swapcontext(&scheduler->context, &main);
       //is main automatically set? what is main
     }
@@ -240,7 +247,9 @@ static void sched_RR() {
   if(DEBUG){
     printf("taking a process off of the ready queue in RR \n");
   }
-  while(active->status != READY && active->status != UNUSED){
+  // run this once no matter what
+  active = dequeue(ready_queue);
+  while(active->status != READY){
       active = dequeue(ready_queue);
       if(active->status!= READY){
         enqueue(ready_queue, active); 
@@ -251,11 +260,6 @@ static void sched_RR() {
       printf("no more ready threads \n");
     }
     return;
-  }
-
-  if(DEBUG){
-    printf("active: %d\n", active->id);
-    print(ready_queue);
   }
 
   // swap context to thread
