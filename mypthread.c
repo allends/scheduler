@@ -113,6 +113,7 @@ void mypthread_exit(void *value_ptr) {
     printf("going back to the scheduler from exit \n");
   }
   setcontext(&scheduler->context);
+  return; 
 };
 
 /* Wait for thread termination */
@@ -238,6 +239,9 @@ static void sched_RR() {
   }
   while(active->status != READY && active->status != UNUSED){
       active = dequeue(ready_queue);
+      if(active->status!= READY){
+        enqueue(ready_queue, active); 
+      }
   }
   if (active == NULL) {
     if(DEBUG){
@@ -274,7 +278,7 @@ static void sched_PSJF() {
   if(DEBUG){
     printf("taking a process off of the ready queue in PSJF \n");
   }
-  
+
   //keep dequeueing + enqueueing until we get a process that we can run
   tcb* least_run; 
   for(int i = 0; i<NUM_THREADS; i++){
