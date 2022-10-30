@@ -1,11 +1,12 @@
 // File:	mypthread.c
 
-// List all group members' names:
+// List all group members' names: 
 // iLab machine tested on:
 
 #include "mypthread.h"
 #include "queue.h"
 #define NUM_THREADS 5
+#define DEBUG 1
 
 // INITAILIZE ALL YOUR VARIABLES HERE
 // YOUR CODE HERE
@@ -17,8 +18,10 @@ static uint waiting = 0;
 static struct Queue* ready_queue;
 
 void switch_to_scheduler() {
-  printf("preempted by signal handler\n");
-  printf("scheduling %d \n", active->id);
+  if(DEBUG){
+    printf("preempted by signal handler\n");
+    printf("scheduling %d \n", active->id);
+  }
   enqueue(ready_queue, active);
   swapcontext(&active->context, &scheduler->context);
 }
@@ -26,10 +29,9 @@ void switch_to_scheduler() {
 /* create a new thread */
 int mypthread_create(mypthread_t *thread, pthread_attr_t *attr,
                      void *(*function)(void *), void *arg) {
-  // YOUR CODE HERE
-  signal(SIGALRM, switch_to_scheduler);
-
 	if (scheduler == NULL) {
+    signal(SIGALRM, switch_to_scheduler); // i think we only need to set this the once
+
     tcb *new_tcb = malloc(sizeof(tcb));
     getcontext(&new_tcb->context);
     new_tcb->context.uc_stack.ss_sp = new_tcb->stack;
@@ -55,45 +57,56 @@ int mypthread_create(mypthread_t *thread, pthread_attr_t *attr,
   
   // TODO: change this to a queue
   // after everything is all set, push this thread into the ready queue
-  printf("scheduling %d \n", new_tcb->id);
+  if(DEBUG){
+    printf("scheduling %d \n", new_tcb->id);
+  }
   enqueue(ready_queue, new_tcb);
 
   // switch to the schedulers thread
   swapcontext(&main, &scheduler->context);
-  printf("returning from mypthread_create\n");
+  if(DEBUG){
+    printf("returning from mypthread_create\n");
+  }
   return 0;
 };
 
 /* current thread voluntarily surrenders its remaining runtime for other threads
  * to use */
 int mypthread_yield() {
-  // YOUR CODE HERE
-
   // change current thread's state from Running to Ready
   // main context of this thread to its thread control block
   // switch from this thread's context to the scheduler's context
-  printf("yielding and going back to scheduler \n");
+
+  if(DEBUG){
+    printf("yielding and going back to scheduler \n");
+  }
+  active->status = READY; 
+  //active->context = something else? why des it say "main context of this thread to its thread control block"
   swapcontext(&active->context, &scheduler->context);
   return 0;
 };
 
 /* terminate a thread */
 void mypthread_exit(void *value_ptr) {
-  // YOUR CODE HERE
-
   // preserve the return value pointer if not NULL
   // deallocate any dynamic memory allocated when starting this thread
+
   if (active == NULL) {
     setcontext(&scheduler->context);
   }
 
+  // waiting should be specific to a thread, since multiple threads could call join right??
   if (active->id == waiting) {
     waiting = 0;
   }
 
-  active->status = UNUSED;
+  active->status = DONE; //i think this should be done rather than unused right? 
+  //should we leave the thread on the queue?? at which point do we free all the ready queue??
   active = NULL;
-  printf("going back to the scheduler \n");
+
+  if(DEBUG){
+    printf("going back to the scheduler from exit \n");
+  }
   setcontext(&scheduler->context);
   return;
 };
@@ -106,10 +119,10 @@ int mypthread_join(mypthread_t thread, void **value_ptr) {
   
   if (target != NULL) {
     waiting = target->id;
-    printf("found: %d \n", target->id);
+    if(DEBUG){
+      printf("found join thread: %d \n", target->id);
+    }
   }
-
-
   setcontext(&scheduler->context);
   // deallocate any dynamic memory created by the joining thread
   return 0;
@@ -118,42 +131,58 @@ int mypthread_join(mypthread_t thread, void **value_ptr) {
 /* initialize the mutex lock */
 int mypthread_mutex_init(mypthread_mutex_t *mutex,
                          const pthread_mutexattr_t *mutexattr) {
-  // YOUR CODE HERE
-
-  // initialize data structures for this mutex
-
-  return 0;
+  // initialize data structures for this mutex                        
+  mutex = malloc(sizeof(mypthread_mutex_t)); 
+  mutex->locked = 0; 
+  mutex->locking_thread = NULL; 
+  mutex->waiting = createQueue(NUM_THREADS);  //change when we change the queue
+  return 0; // 0 means it worked
 };
 
 /* aquire a mutex lock */
 int mypthread_mutex_lock(mypthread_mutex_t *mutex) {
-  // YOUR CODE HERE
-
   // use the built-in test-and-set atomic function to test the mutex
   // if the mutex is acquired successfully, return
   // if acquiring mutex fails, put the current thread on the blocked/waiting
   // list and context switch to the scheduler thread
 
+  while(!__atomic_test_and_set(&mutex->locked, __ATOMIC_ACQ_REL)){
+    enqueue(mutex->waiting, active); 
+    active->status = BLOCKED; 
+    
+  }
+  //obtained the lock
+  mutex->locking_thread = active; 
   return 0;
 };
 
 /* release the mutex lock */
 int mypthread_mutex_unlock(mypthread_mutex_t *mutex) {
-  // YOUR CODE HERE
-
   // update the mutex's metadata to indicate it is unlocked
   // put the thread at the front of this mutex's blocked/waiting queue in to the
   // run queue
-
-  return 0;
+  if(mutex->locking_thread!= NULL && mutex->locking_thread == active){
+    mutex->locked = 0; 
+    mutex->locking_thread = NULL;
+    tcb* first = dequeue(mutex->waiting); 
+    first->status = READY; 
+    return 0;
+  }
+  //this wasn't the locking thread
+  return -1; 
 };
 
 /* destroy the mutex */
 int mypthread_mutex_destroy(mypthread_mutex_t *mutex) {
-  // YOUR CODE HERE
-
   // deallocate dynamic memory allocated during mypthread_mutex_init
 
+  // can't destroy a mutex in use
+  if(mutex->locked || mutex->waiting == NULL){
+    return -1; 
+  }
+  //make sure that we don't actually free any tcbs
+  free(mutex->waiting); //this will change when we change the queue
+  free(mutex); 
   return 0;
 };
 
@@ -190,19 +219,34 @@ static void sched_RR() {
   timer.it_interval.tv_usec = 0;
 
   // take a proces off of the ready queue and make it run for a little bit
-  printf("taking a process off of the ready queue \n");
-  active = dequeue(ready_queue);
+  if(DEBUG){
+    printf("taking a process off of the ready queue \n");
+  }
+  while(active->status != READY && active->status != UNUSED){
+      active = dequeue(ready_queue);
+  }
   if (active == NULL) {
-    printf("no more threads \n");
+    if(DEBUG){
+      printf("no more threads \n");
+    }
     return;
   }
-  printf("active: %d\n", active->id);
-  print(ready_queue);
+
+  if(DEBUG){
+    printf("active: %d\n", active->id);
+    print(ready_queue);
+  }
+
   // swap context to thread
-  printf("switching to %d \n", active->id);
+  if(DEBUG){
+    printf("switching to %d \n", active->id);
+  }
   setitimer(ITIMER_REAL, &timer, NULL);
   swapcontext(&scheduler->context, &active->context);
-  printf("back to this context\n");
+
+  if(DEBUG){
+    printf("back to this context\n");
+  }
   // return to here
   // block thread
 }
@@ -216,6 +260,10 @@ static void sched_PSJF() {
 
   return;
 }
+
+
+
+
 
 /* Preemptive MLFQ scheduling algorithm */
 /* Graduate Students Only */

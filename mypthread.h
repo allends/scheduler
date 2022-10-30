@@ -21,6 +21,7 @@
 #include <sys/time.h>
 #include <signal.h>
 #include <limits.h>
+#include "queue.h"
 
 typedef uint mypthread_t;
 
@@ -31,8 +32,6 @@ typedef enum thread_status{
 	/* add important states in a thread control block */
 typedef struct threadControlBlock
 {
-	// YOUR CODE HERE	
-	
 	// thread Id
 	uint id;
 	// thread status
@@ -42,7 +41,7 @@ typedef struct threadControlBlock
 	// thread stack
 	char stack[65536];
 	// thread priority
-	int priority;
+	int quantums_run;
 	// And more ...
 
 } tcb;
@@ -50,9 +49,10 @@ typedef struct threadControlBlock
 /* mutex struct definition */
 typedef struct mypthread_mutex_t
 {
-
-	// YOUR CODE HERE
-	
+	// 0 = not locked
+	int locked; 
+	tcb* locking_thread; 
+	struct queue* waiting;
 } mypthread_mutex_t;
 
 

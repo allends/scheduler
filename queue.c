@@ -1,4 +1,5 @@
 #include "queue.h"
+
 // function to create a queue
 // of given capacity.
 // It initializes size of queue as 0
