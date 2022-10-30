@@ -58,7 +58,7 @@ typedef struct mypthread_mutex_t
 	// 0 = not locked
 	int locked; 
 	tcb* locking_thread; 
-	struct queue* waiting;
+	struct Queue* waiting;
 } mypthread_mutex_t;
 
 
@@ -68,6 +68,7 @@ typedef struct mypthread_mutex_t
 /* Function Declarations: */
 static void schedule();
 static void sched_RR();
+static void sched_PSJF();
 
 /* create a new thread */
 int mypthread_create(mypthread_t * thread, pthread_attr_t * attr, void *(*function)(void*), void * arg);
