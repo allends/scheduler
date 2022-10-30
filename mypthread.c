@@ -43,7 +43,7 @@ int mypthread_create(mypthread_t *thread, pthread_attr_t *attr,
     getcontext(&new_tcb->context);
     new_tcb->context.uc_stack.ss_sp = new_tcb->stack;
 	  new_tcb->context.uc_stack.ss_size = sizeof(new_tcb->stack);
-    new_tcb->id = 69;
+    new_tcb->id = 69; //will have to change this
     makecontext(&new_tcb->context, schedule, 0);
     scheduler = new_tcb;
     ready_queue = createQueue(NUM_THREADS);
@@ -145,6 +145,9 @@ int mypthread_mutex_init(mypthread_mutex_t *mutex,
   mutex->locked = 0; 
   mutex->locking_thread = NULL; 
   mutex->waiting = createQueue(NUM_THREADS);  //change when we change the queue
+  if(DEBUG){
+    printf("initialized a mutex"); 
+  }
   return 0; // 0 means it worked
 };
 
@@ -158,7 +161,7 @@ int mypthread_mutex_lock(mypthread_mutex_t *mutex) {
   while(!__atomic_test_and_set(&mutex->locked, __ATOMIC_ACQ_REL)){
     enqueue(mutex->waiting, active); 
     active->status = BLOCKED; 
-    
+    switch_to_scheduler(); 
   }
   //obtained the lock
   mutex->locking_thread = active; 
