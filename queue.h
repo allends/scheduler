@@ -10,14 +10,21 @@
 #include <limits.h>
 #include "mypthread.h"
 
+typedef struct Nodes {
+    struct Node* next;
+    tcb* value;
+} Node;
+
 // A structure to represent a queue
 struct Queue {
     int front, rear, size;
-    unsigned capacity;
-    tcb** array;
+    Node* head;
+    Node* tail;
 };
+
+
  
-struct Queue* createQueue(unsigned capacity);
+struct Queue* createQueue();
 
 int isFull(struct Queue* queue);
 
