@@ -3,26 +3,20 @@
 // function to create a queue
 // of given capacity.
 // It initializes size of queue as 0
-struct Queue* createQueue(unsigned capacity)
+struct Queue* createQueue()
 {
     struct Queue* queue = (struct Queue*)malloc(
         sizeof(struct Queue));
-    queue->capacity = capacity;
-    queue->front = queue->size = 0;
- 
-    // This is important, see the enqueue
-    queue->rear = capacity - 1;
-    queue->array = malloc(
-        queue->capacity * sizeof(tcb*));
-    printf("capacity: %d \n", capacity);
+    queue->size = 0;
+    Node* head = malloc(sizeof(Node));
+    Node* tail = malloc(sizeof(Node));
+    head->next = tail;
+    head->value = NULL;
+    tail->value = NULL;
+    tail->next = NULL;
+    queue->head = head;
+    queue->tail = tail;
     return queue;
-}
- 
-// Queue is full when size becomes
-// equal to the capacity
-int isFull(struct Queue* queue)
-{
-    return (queue->size == queue->capacity);
 }
  
 // Queue is empty when size is 0
@@ -35,10 +29,20 @@ int isEmpty(struct Queue* queue)
 // It changes rear and size
 void enqueue(struct Queue* queue, tcb* item)
 {
-    if (isFull(queue))
+    if (queue->head->value == NULL) {
+        queue->head->value = item;
+        queue->size = queue->size + 1;
         return;
-    queue->rear = (queue->rear + 1) % queue->capacity;
-    queue->array[queue->rear] = item;
+    }
+    if (queue->tail->value == NULL) {
+        queue->tail->value = item;
+        queue->size = queue->size + 1;
+        return;
+    }
+    Node* new_tail = malloc(sizeof(Node));
+    new_tail->value = item;
+    queue->tail->next = new_tail;
+    queue->tail = new_tail;
     queue->size = queue->size + 1;
 }
  
@@ -48,10 +52,23 @@ tcb* dequeue(struct Queue* queue)
 {
     if (isEmpty(queue))
         return NULL;
-    tcb* item = queue->array[queue->front];
-    queue->front = (queue->front + 1) % queue->capacity;
+    if (queue->size == 1) {
+        tcb* item = queue->head->value;
+        queue->size = queue->size - 1;
+        queue->head->value = NULL;
+        return item;
+    }
+    if (queue->size == 2) {
+        tcb* item = queue->head->value;
+        queue->size = queue->size - 1;
+        queue->head->value = queue->tail->value;
+        queue->tail->value = NULL;
+        return item;
+    }
+    Node* item = queue->head;
+    queue->head = queue->head->next;
     queue->size = queue->size - 1;
-    return item;
+    return item->value;
 }
  
 // Function to get front of queue
@@ -59,7 +76,7 @@ tcb* front(struct Queue* queue)
 {
     if (isEmpty(queue))
         return NULL;
-    return queue->array[queue->front];
+    return queue->head;
 }
  
 // Function to get rear of queue
@@ -67,28 +84,44 @@ tcb* rear(struct Queue* queue)
 {
     if (isEmpty(queue))
         return NULL;
-    return queue->array[queue->rear];
+    return queue->tail;
 }
 
-tcb* tcb_by_id(struct Queue* queue, uint target_id) {
+tcb* tcb_by_id(struct Queue* queue, unsigned int target_id) {
     if (isEmpty(queue)) {
         return NULL;
     }
-    int current = queue->front;
+    Node* current = queue->head;
     int max = queue->size;
     int count = 0;
-    while (count < max) {
-        printf("checking id %d \n", queue->array[current]->id);
-        if (queue->array[current]->id == target_id) {
-            printf("returning the desired node \n");
-            tcb* item = queue->array[current];
-            return item;
+    while (current->next != NULL) {
+        current = current->next;
+
+        if (current->value->id == target_id) {
+            return current->value;
         }
-        current = (queue->front + 1) % queue->capacity;
-        count++;
     } 
 
     return NULL;
+}
+
+void remove_by_id(struct Queue* queue, unsigned int target_id) {
+    if (isEmpty(queue)) {
+        return NULL;
+    }
+    Node* current = queue->head;
+    Node* previous = NULL;
+    int max = queue->size;
+    int count = 0;
+    while (current->next != NULL) {
+        previous = current;
+        current = current->next;
+
+        if (current->value->id == target_id) {
+            break;
+        }
+    } 
+    previous->next = current->next;
 }
 
 void print(struct Queue* queue) {
@@ -96,13 +129,12 @@ void print(struct Queue* queue) {
         printf("queue is empty \n");
         return NULL;
     }
-    int current = queue->front;
+    Node* current = queue->head;
     int max = queue->size;
-    int count = 0;
-    while (count < max) {
-        printf("%d > " , queue->array[current]->id);
-        current = (queue->front + 1) % queue->capacity;
-        count ++;
+    while (current->value != NULL) {
+        printf("%d > " , current->value->id);
+        if (current->next == NULL) {break;}
+        current = current->next;
     }
     printf("done \n\n");
 }
