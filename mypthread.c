@@ -5,6 +5,7 @@
 
 #include "mypthread.h"
 #include "queue.h"
+
 #define NUM_THREADS 5
 #define SCHED_RR 1 // nonzero for RR, 0 for SJF
 #define DEBUG 1
@@ -122,32 +123,33 @@ int mypthread_join(mypthread_t thread, void **value_ptr) {
 
   tcb* target = tcb_by_id(ready_queue,(uint) thread);
   
-  if (target != NULL) {
-    // while(target->status!= DONE){
-      
-    // }
+  if(target != NULL) {
     if(DEBUG){
       printf("found join thread: %d \n", target->id);
     }
+    while(target->status!=DONE){
+      active->status=BLOCKED; 
+      switch_to_scheduler(); 
+    }
+    //now the target status is done
+    //DO STUFF
 
   }
-  switch_to_scheduler(); 
-  setcontext(&scheduler->context);
-  // deallocate any dynamic memory created by the joining thread
-  return 0;
+  else{
+    return -1; //thread to join not found
+  }
 };
 
 /* initialize the mutex lock */
 int mypthread_mutex_init(mypthread_mutex_t *mutex,
                          const pthread_mutexattr_t *mutexattr) {
-  // initialize data structures for this mutex                        
-  mutex = malloc(sizeof(mypthread_mutex_t)); 
-  mutex->locked = 0; 
-  mutex->locking_thread = NULL; 
-  mutex->waiting = createQueue(NUM_THREADS);  //change when we change the queue
+  // initialize data structures for this mutex    
   if(DEBUG){
-    printf("initialized a mutex"); 
-  }
+    printf("start initializing a mutex\n"); 
+  }                   
+  mutex->locking_thread = NULL; 
+  __atomic_clear(&(mutex->locked), __ATOMIC_SEQ_CST);
+  mutex->waiting = createQueue(NUM_THREADS);  //change when we change the queue
   return 0; // 0 means it worked
 };
 
@@ -158,12 +160,18 @@ int mypthread_mutex_lock(mypthread_mutex_t *mutex) {
   // if acquiring mutex fails, put the current thread on the blocked/waiting
   // list and context switch to the scheduler thread
 
-  while(!__atomic_test_and_set(&mutex->locked, __ATOMIC_ACQ_REL)){
+  while(!__atomic_test_and_set(&mutex->locked, __ATOMIC_SEQ_CST)){
     enqueue(mutex->waiting, active); 
     active->status = BLOCKED; 
+    if(DEBUG){
+      printf("already acquired"); 
+    }
     switch_to_scheduler(); 
   }
   //obtained the lock
+  if(DEBUG){
+    printf("got the lock!"); 
+  }
   mutex->locking_thread = active; 
   return 0;
 };
@@ -173,14 +181,15 @@ int mypthread_mutex_unlock(mypthread_mutex_t *mutex) {
   // update the mutex's metadata to indicate it is unlocked
   // put the thread at the front of this mutex's blocked/waiting queue in to the
   // run queue
+  
   if(mutex->locking_thread!= NULL && mutex->locking_thread == active){
-    mutex->locked = 0; 
+    __atomic_clear(&(mutex->locked), __ATOMIC_SEQ_CST);
     mutex->locking_thread = NULL;
     tcb* first = dequeue(mutex->waiting); 
     first->status = READY; 
     return 0;
   }
-  //this wasn't the locking thread
+  // this wasn't the locking thread
   return -1; 
 };
 
@@ -194,7 +203,6 @@ int mypthread_mutex_destroy(mypthread_mutex_t *mutex) {
   }
   //make sure that we don't actually free any tcbs
   free(mutex->waiting); //this will change when we change the queue
-  free(mutex); 
   return 0;
 };
 

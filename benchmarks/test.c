@@ -37,14 +37,24 @@ void function3() {
 	mypthread_exit(NULL);
 }
 
+//testing the atomics without calling from within a thread
 void test_mutex(){
-
+	printf("mutex part start\n"); 
+	mypthread_mutex_t mutex;
+	printf("calling init\n"); 
+	mypthread_mutex_init(&mutex, NULL); 
+	if(mutex.locked){
+		printf("this mutex is locked now\n"); 
+	}
+	mypthread_mutex_lock(&mutex); 
+	mypthread_mutex_lock(&mutex); 
+	printf("mutex part done\n"); 
 }
 
 
 int main(int argc, char **argv) {
+	test_mutex();
 
-	/* Implement HERE */
 	mypthread_t thread1;
 	mypthread_t thread2;
 	mypthread_t thread3;

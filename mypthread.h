@@ -21,7 +21,6 @@
 #include <sys/time.h>
 #include <signal.h>
 #include <limits.h>
-#include "queue.h"
 
 typedef uint mypthread_t;
 
@@ -56,7 +55,7 @@ typedef struct threadControlBlock
 typedef struct mypthread_mutex_t
 {
 	// 0 = not locked
-	int locked; 
+	char locked; 
 	tcb* locking_thread; 
 	struct Queue* waiting;
 } mypthread_mutex_t;
