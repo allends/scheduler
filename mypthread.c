@@ -30,6 +30,7 @@ void switch_to_scheduler() {
   }
 
   if (tcb_by_id(ready_queue, active->id) != NULL) {
+    printf("switching to context %d \n", active->id);
     swapcontext(&active->context, &scheduler->context);
   } 
 
@@ -116,8 +117,11 @@ void mypthread_exit(void *value_ptr) {
   //should we leave the thread on the queue?? at which point do we free all the ready queue??
   active = NULL;
 
+  remove_by_id(ready_queue, active->id);
+
   if(DEBUG){
     printf("going back to the scheduler from exit \n");
+    exit(0);
   }
   setcontext(&scheduler->context);
   return; 
@@ -238,8 +242,8 @@ static void sched_RR() {
 
   // set itimer
   struct itimerval timer;
-  timer.it_value.tv_usec = 100;
-  timer.it_value.tv_sec = 0;
+  timer.it_value.tv_usec = 0;
+  timer.it_value.tv_sec = 2;
   timer.it_interval.tv_sec = 0;
   timer.it_interval.tv_usec = 0;
 

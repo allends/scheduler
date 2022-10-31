@@ -105,6 +105,25 @@ tcb* tcb_by_id(struct Queue* queue, unsigned int target_id) {
     return NULL;
 }
 
+void remove_by_id(struct Queue* queue, unsigned int target_id) {
+    if (isEmpty(queue)) {
+        return NULL;
+    }
+    Node* current = queue->head;
+    Node* previous = NULL;
+    int max = queue->size;
+    int count = 0;
+    while (current->next != NULL) {
+        previous = current;
+        current = current->next;
+
+        if (current->value->id == target_id) {
+            break;
+        }
+    } 
+    previous->next = current->next;
+}
+
 void print(struct Queue* queue) {
     if (isEmpty(queue)) {
         printf("queue is empty \n");
