@@ -22,8 +22,6 @@ struct Queue {
     Node* tail;
 };
 
-
- 
 struct Queue* createQueue();
 
 int isEmpty(struct Queue* queue);

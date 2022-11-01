@@ -103,7 +103,7 @@ tcb* tcb_by_id(struct Queue* queue, unsigned int target_id) {
     while (current->next != NULL) {
         current = current->next;
 
-        if (current->value->id == target_id) {
+        if (current->value && current->value->id == target_id) {
             return current->value;
         }
     } 

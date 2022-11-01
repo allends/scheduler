@@ -23,13 +23,23 @@ static struct itimerval timer;
 
 
 void switch_to_scheduler() {
-  if(DEBUG){
-    printf("switch to scheduler\n");
+  if (active == NULL) {
+    if (DEBUG) {
+      printf("active is null, going back to main \n");
+    }
+    swapcontext(&main, &scheduler->context);
   }
+
+  if (tcb_by_id(ready_queue, active->id) != NULL) {
+    printf("switching to context %d \n", active->id);
+    swapcontext(&active->context, &scheduler->context);
+  } 
+
   //set status of current thread to READY if it was running
   //otherwise, (if BLOCKED), don't override status
   if(active!= NULL){
     if(DEBUG){
+      printf("active is not null\n");
       printf("active thread id: %d\n", active->id); 
     }
     if(active->status == RUNNING){
@@ -94,9 +104,11 @@ int mypthread_create(mypthread_t *thread, pthread_attr_t *attr,
   enqueue(ready_queue, new_tcb);
   if(DEBUG){
     printf("scheduling %d \n", new_tcb->id);
-    print(ready_queue); 
+    print(ready_queue);
   }
 
+  // switch to the schedulers thread
+  // swapcontext(&main, &scheduler->context); 
   if(DEBUG){
     printf("returning from mypthread_create\n");
   }
@@ -128,6 +140,7 @@ void mypthread_exit(void *value_ptr) {
     printf("calling exit\n"); 
   }
   if (active == NULL) {
+    printf("going back to the scheduler context \n");
     setcontext(&scheduler->context);
   }
 
@@ -138,11 +151,10 @@ void mypthread_exit(void *value_ptr) {
 
   active = NULL;
 
-  // if(DEBUG){
-  //   printf("going back to the scheduler from exit \n");
-  // }
-  // setcontext(&scheduler->context);
-  setcontext(&waiting); 
+  if(DEBUG){
+    printf("going back to the scheduler from exit \n");
+  }
+  setcontext(&scheduler->context);
   return; 
 };
 
@@ -310,6 +322,7 @@ static void sched_RR() {
   // swap context to thread
   active->status = RUNNING; 
   swapcontext(&scheduler->context, &active->context);
+  printf("this is the last line of the scheduler \n");
 }
 
 /* Preemptive PSJF (STCF) scheduling algorithm */

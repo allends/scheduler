@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include "../mypthread.h"
+#include "../queue.h"
 
 mypthread_mutex_t mutex;
 
@@ -13,7 +14,7 @@ mypthread_mutex_t mutex;
  * This will not be graded.
  */
 void function1() {
-	for (int i=0; i<3; i++) {
+	for (int i=0; i<5; i++) {
 		printf("... function1 %d \n", i);
 		sleep(1);
 	}
@@ -22,7 +23,7 @@ void function1() {
 }
 
 void function2() {
-	for (int i=0; i<3; i++) {
+	for (int i=0; i<5; i++) {
 		printf("... function2 %d \n", i);
 		sleep(1);
 	}
@@ -31,7 +32,7 @@ void function2() {
 }
 
 void function3() {
-	for (int i=0; i<3; i++) {
+	for (int i=0; i<5; i++) {
 		printf("... function3 %d \n", i);
 		sleep(1);
 	}
