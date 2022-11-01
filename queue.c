@@ -24,6 +24,12 @@ int isEmpty(struct Queue* queue)
 {
     return (queue->size == 0);
 }
+
+// Return the size of the eueue
+int queueSize(struct Queue* queue)
+{
+    return (queue->size);
+}
  
 // Function to add an item to the queue.
 // It changes rear and size
@@ -113,21 +119,35 @@ void remove_by_id(struct Queue* queue, unsigned int target_id) {
     Node* previous = NULL;
     int max = queue->size;
     int count = 0;
-    while (current->next != NULL) {
+    while (current->value->id != target_id && current->next != NULL ) {
         previous = current;
         current = current->next;
-
-        if (current->value->id == target_id) {
-            break;
-        }
     } 
-    previous->next = current->next;
+    if (current->value->id == target_id) {
+        if (queue->size == 1) {
+            queue->head->value = NULL;
+        }
+        else if (queue->size == 2) {
+            if(previous == NULL){
+                queue->head->value = queue->tail->value;
+                queue->tail->value = NULL;
+            }
+            else if(current->next == NULL){
+                queue->head->next = NULL;
+                queue->tail->value = NULL;
+            }
+        }
+        else{
+            previous->next = current->next;
+        }
+        queue->size = queue->size - 1;
+    }
 }
 
 void print(struct Queue* queue) {
     if (isEmpty(queue)) {
         printf("queue is empty \n");
-        return NULL;
+        return;
     }
     Node* current = queue->head;
     int max = queue->size;

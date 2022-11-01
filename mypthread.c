@@ -7,7 +7,7 @@
 #include "queue.h"
 
 #define NUM_THREADS 5
-#define SCHED_RR 1 // nonzero for RR, 0 for SJF
+#define SCHED_RR 0 // nonzero for RR, 0 for SJF
 #define DEBUG 1
 
 // INITIALIZE ALL YOUR VARIABLES HERE
@@ -42,7 +42,7 @@ void switch_to_scheduler() {
     swapcontext(&active->context, &scheduler->context);
   }
   else{
-    setcontext(scheduler); 
+    setcontext(&scheduler->context); 
   }
 }
 
@@ -265,6 +265,9 @@ static void schedule() {
   // be sure to check the SCHED definition to determine which scheduling
   // algorithm you should run
   //   i.e. RR, PSJF or MLFQ
+  if (DEBUG){
+    printf("in schedule\n"); 
+  }
   while(ready_queue!= NULL && !isEmpty(ready_queue)){
     if(SCHED_RR){
       sched_RR();
@@ -301,6 +304,7 @@ static void sched_RR() {
   }
 
   // swap context to thread
+  active->status = RUNNING; 
   swapcontext(&scheduler->context, &active->context);
 }
 
@@ -315,22 +319,36 @@ static void sched_PSJF() {
   }
 
   //keep dequeueing + enqueueing until we get a process that we can run
-  tcb* least_run; 
-  for(int i = 0; i<NUM_THREADS; i++){
-    tcb* tmp = dequeue(ready_queue);
-    if(tmp == NULL){
-      return; 
-    }
-    if(tmp->status == BLOCKED){
-      enqueue(ready_queue, tmp); 
-    }
-    else if(tmp->status = READY){
-      if(least_run ==  NULL || least_run->quantums_run > tmp->quantums_run){
-        least_run = tmp; 
+  tcb* least_run = NULL; 
+  if(DEBUG){
+    printf("queueSize %d\n", queueSize(ready_queue)); 
+    print(ready_queue); 
+  }
+  for(int i = 0; i< queueSize(ready_queue); i++ ){
+    tcb* tmp = dequeue(ready_queue); 
+    if(tmp->status == READY){
+      if(DEBUG){
+        printf("tmp status is ready\n"); 
       }
+      if(least_run ==  NULL || least_run->quantums_run > tmp->quantums_run){
+        least_run = tmp;
+        if(DEBUG){
+          printf("least run id %d\n", least_run->id); 
+        }
+      }
+    }
+    enqueue(ready_queue, tmp); 
+  }
+  if(DEBUG){
+    printf("least run id: %d\n", least_run->id); 
+  }
+  if(least_run->status == READY){
+    if(DEBUG){
+      printf("least run status is ready\n"); 
     }
   }
   active = least_run; 
+  remove_by_id(ready_queue, least_run->id); 
   if(active == NULL){
     if(DEBUG){
       printf("no more ready threads in PSJF\n");
