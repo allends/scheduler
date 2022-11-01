@@ -14,7 +14,7 @@
 // YOUR CODE HERE
 static tcb* active;
 static tcb* scheduler;
-ucontext_t main;
+ucontext_t waiting;
 static uint current_id = 0;
 static uint waiting = 0;
 static struct Queue* ready_queue;
@@ -126,6 +126,10 @@ void mypthread_yield() {
   }
   //this is only called from within a running thread
   switch_to_scheduler(); 
+  if(DEBUG){
+    printf("returning from yield\n"); 
+  }
+  return 0; 
 };
 
 /* terminate a thread */
@@ -281,12 +285,12 @@ static void schedule() {
     printf("in schedule\n"); 
   }
   while(ready_queue!= NULL && !isEmpty(ready_queue)){
-    if(SCHED_RR){
-      sched_RR();
-    }
-    else{
+    #ifdef RR
+      sched_RR(); 
+    #endif
+    #ifdef PSJF
       sched_PSJF(); 
-    }
+    #endif
   }
 }
 
