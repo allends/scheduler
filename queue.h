@@ -26,8 +26,6 @@ struct Queue {
  
 struct Queue* createQueue();
 
-int isFull(struct Queue* queue);
-
 int isEmpty(struct Queue* queue);
 
 void enqueue(struct Queue* queue, tcb* item);
@@ -39,3 +37,5 @@ tcb* front(struct Queue* queue);
 tcb* rear(struct Queue* queue);
 
 tcb* tcb_by_id(struct Queue* queue, uint target_id);
+
+void print(struct Queue* queue); 

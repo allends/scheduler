@@ -25,7 +25,7 @@
 typedef uint mypthread_t;
 
 typedef enum thread_status{
-	UNUSED, READY, BLOCKED, RUNNING, DONE
+	READY, BLOCKED, RUNNING, DONE
 } thread_status;
 
 	/* add important states in a thread control block */
@@ -46,8 +46,9 @@ typedef struct threadControlBlock
 	//MAYBE: 
 	// nonzero if any thread called join on this one
 	uint waiting_id; 
-	// exit status of thread that this one called join on
-	int joined_status; 
+	ucontext_t waiting_context;
+	// exit status of this thread
+	int *exit_status; 
 
 } tcb;
 
