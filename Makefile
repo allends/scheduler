@@ -17,7 +17,7 @@ mypthread.a: mypthread.o queue.o
 mypthread.o: mypthread.h
 
 ifeq ($(SCHED), RR)
-	$(CC) -pthread $(CFLAGS) mypthread.c
+	$(CC) -pthread $(CFLAGS) -DRR mypthread.c
 else ifeq ($(SCHED), PSJF)
 	$(CC) -pthread $(CFLAGS) -DPSJF mypthread.c
 else ifeq ($(SCHED), MLFQ)

@@ -269,12 +269,12 @@ static void schedule() {
     printf("in schedule\n"); 
   }
   while(ready_queue!= NULL && !isEmpty(ready_queue)){
-    if(SCHED_RR){
-      sched_RR();
-    }
-    else{
+    #ifdef RR
+      sched_RR(); 
+    #endif
+    #ifdef PSJF
       sched_PSJF(); 
-    }
+    #endif
   }
 }
 
