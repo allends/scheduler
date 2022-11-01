@@ -6,28 +6,32 @@
 #include "mypthread.h"
 #include "queue.h"
 
-#define NUM_THREADS 5
-#define SCHED_RR 0 // nonzero for RR, 0 for SJF
 #define DEBUG 1
 
 // INITIALIZE ALL YOUR VARIABLES HERE
 // YOUR CODE HERE
 static tcb* active;
 static tcb* scheduler;
-ucontext_t waiting;
-static uint current_id = 0;
-static uint waiting = 0;
+ucontext_t waiting_context;
+int waiting = 0; // has anyone called join on us
+
+static uint current_id = 0; // maintain increasing id #'s starting from 0 for scheduler
 static struct Queue* ready_queue;
 static int thread_count = 0; // number of threads created
 static struct itimerval timer; 
 
+//TEMP for testing purposes!!!
+void sighand(){
+  printf("\nsignal!!!!! \n"); 
+  switch_to_scheduler(); 
+}
 
 void switch_to_scheduler() {
   if (active == NULL) {
     if (DEBUG) {
-      printf("active is null, going back to main \n");
+      printf("active is null, going back to waiting_context \n");
     }
-    swapcontext(&main, &scheduler->context);
+    swapcontext(&waiting_context, &scheduler->context);
   }
 
   if (tcb_by_id(ready_queue, active->id) != NULL) {
@@ -73,9 +77,9 @@ int mypthread_create(mypthread_t *thread, pthread_attr_t *attr,
     scheduler = new_tcb;
     ready_queue = createQueue();
 
-    signal(SIGALRM, scheduler); // i think we only need to set this the once
+    signal(SIGALRM, sighand); // i think we only need to set this the once
     
-    // SET UP A TIMER
+    // SET UP A TIMER (FIX THIS!! make a static global var, check every time we're in the sched)
     // set itimer
     struct itimerval timer;
     timer.it_value.tv_usec = 100;
@@ -108,7 +112,7 @@ int mypthread_create(mypthread_t *thread, pthread_attr_t *attr,
   }
 
   // switch to the schedulers thread
-  // swapcontext(&main, &scheduler->context); 
+  // swapcontext(&waiting_context, &scheduler->context); 
   if(DEBUG){
     printf("returning from mypthread_create\n");
   }
@@ -117,7 +121,7 @@ int mypthread_create(mypthread_t *thread, pthread_attr_t *attr,
 
 /* current thread voluntarily surrenders its remaining runtime for other threads
  * to use */
-void mypthread_yield() {
+int mypthread_yield() {
   // change current thread's state from Running to Ready
   // main context of this thread to its thread control block
   // switch from this thread's context to the scheduler's context
@@ -145,7 +149,6 @@ void mypthread_exit(void *value_ptr) {
   }
 
   active->status = DONE;
-  ucontext_t waiting = active->waiting_context;   
   active->exit_status = value_ptr; 
   //should we leave the thread on the queue?? at which point do we free all the ready queue?
 
@@ -154,7 +157,13 @@ void mypthread_exit(void *value_ptr) {
   if(DEBUG){
     printf("going back to the scheduler from exit \n");
   }
-  setcontext(&scheduler->context);
+
+  if(waiting){
+    setcontext(&waiting_context);
+  }
+  else{
+    setcontext(&scheduler->context); 
+  }
   return; 
 };
 
@@ -170,11 +179,14 @@ int mypthread_join(mypthread_t thread, void **value_ptr) {
       printf("found join thread: %d \n", target->id);
     }
     while(target->status!=DONE){
-      swapcontext(&target->waiting_context, &scheduler->context); 
+      waiting = 1; 
+      swapcontext(&waiting_context, &scheduler->context); 
     }
     //now the target status is done
     //DO STUFF
-    value_ptr = &target->exit_status; 
+    if(value_ptr!= NULL){
+      *value_ptr = target->exit_status; 
+    }
     if(DEBUG){
       printf("done joining on thread %d\n",(uint) thread); 
     }
@@ -372,12 +384,7 @@ static void sched_PSJF() {
     }
     return; 
   }
-  // while((active = dequeue(ready_queue)) != NULL && active->status != READY){
-  //     active = dequeue(ready_queue);
-  //     if(active->status == BLOCKED){
-  //       enqueue(ready_queue, active); 
-  //     }
-  // }
+
   active->status = RUNNING; 
   ++active->quantums_run; 
   swapcontext(&scheduler->context, &active->context);

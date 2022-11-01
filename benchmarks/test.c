@@ -5,7 +5,7 @@
 #include "../queue.h"
 
 mypthread_mutex_t mutex;
-
+int ret = 27; 
 /* A scratch program template on which to call and
  * test mypthread library functions as you implement
  * them.
@@ -62,7 +62,7 @@ void test_mutexes2(){
 	printf("calling lock from thread 2\n");
 	mypthread_mutex_lock(&mutex); 
 	mypthread_mutex_unlock(&mutex); 
-	mypthread_exit(NULL);
+	mypthread_exit(&ret);
 }
 
 
@@ -73,8 +73,9 @@ int main(int argc, char **argv) {
 	mypthread_create(&mthread1, NULL, test_mutexes1, NULL);
 	mypthread_create(&mthread2, NULL, test_mutexes2, NULL);
 
-	printf("calling join\n"); 
-	mypthread_join(mthread2, NULL);
+	printf("calling join\n");
+	int ** ret_val; 
+	mypthread_join(mthread2, ret_val);
 	mypthread_join(mthread1, NULL);
 
 	// mypthread_t thread1;
@@ -88,7 +89,7 @@ int main(int argc, char **argv) {
 	// mypthread_join(thread3, NULL);
 	// mypthread_join(thread2, NULL);
 	// mypthread_join(thread1, NULL);
-
+	printf("retval %d\n", **ret_val); 
 	printf("returning from test bench :) \n");
 	return 0;
 }

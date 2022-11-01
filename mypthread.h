@@ -74,7 +74,7 @@ static void sched_PSJF();
 int mypthread_create(mypthread_t * thread, pthread_attr_t * attr, void *(*function)(void*), void * arg);
 
 /* current thread voluntarily surrenders its remaining runtime for other threads to use */
-void mypthread_yield();
+int mypthread_yield();
 
 /* terminate a thread */
 void mypthread_exit(void *value_ptr);
