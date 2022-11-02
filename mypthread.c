@@ -6,6 +6,7 @@
 #include "mypthread.h"
 #include "queue.h"
 
+#define QUANTUM 10 //if the time quantum is rlly big, everything works fine
 #define DEBUG 1
 
 // INITIALIZE ALL YOUR VARIABLES HERE
@@ -31,7 +32,8 @@ void switch_to_scheduler() {
     if (DEBUG) {
       printf("active is null, going back to waiting_context \n");
     }
-    swapcontext(&waiting_context, &scheduler->context);
+    return; 
+    //swapcontext(&waiting_context, &scheduler->context);
   }
 
   if (tcb_by_id(ready_queue, active->id) != NULL) {
@@ -81,11 +83,11 @@ int mypthread_create(mypthread_t *thread, pthread_attr_t *attr,
     
     // SET UP A TIMER (FIX THIS!! make a static global var, check every time we're in the sched)
     // set itimer
-    struct itimerval timer;
-    timer.it_value.tv_usec = 100;
+    timer.it_value.tv_usec = QUANTUM;
     timer.it_value.tv_sec = 0;
     timer.it_interval.tv_sec = 0;
     timer.it_interval.tv_usec = 0;
+    setitimer(ITIMER_REAL, &timer, NULL); 
   }
 
   // create a Thread Control Block
@@ -266,6 +268,9 @@ int mypthread_mutex_unlock(mypthread_mutex_t *mutex) {
         first->status = READY; 
       }
     }
+    if(DEBUG){
+      printf("released the lock!\n"); 
+    }
     return 0;
   }
   // this wasn't the locking thread
@@ -287,6 +292,11 @@ int mypthread_mutex_destroy(mypthread_mutex_t *mutex) {
 
 /* scheduler */
 static void schedule() {
+  struct itimerval current; 
+  getitimer(ITIMER_REAL, &current); 
+  if(current.it_value.tv_sec == 0 && current.it_value.tv_usec == 0){
+    setitimer(ITIMER_REAL, &timer, NULL); 
+  }
   // each time a timer signal occurs your library should switch in to this
   // context
 
@@ -334,7 +344,9 @@ static void sched_RR() {
   // swap context to thread
   active->status = RUNNING; 
   swapcontext(&scheduler->context, &active->context);
-  printf("this is the last line of the scheduler \n");
+  if(DEBUG){
+    printf("this is the last line of the RR scheduler \n");
+  }
 }
 
 /* Preemptive PSJF (STCF) scheduling algorithm */
