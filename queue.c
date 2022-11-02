@@ -10,7 +10,7 @@ struct Queue* createQueue()
     queue->size = 0;
     Node* head = malloc(sizeof(Node));
     Node* tail = malloc(sizeof(Node));
-    head->next = tail;
+    head->next = (struct Node*) tail;
     head->value = NULL;
     tail->value = NULL;
     tail->next = NULL;
@@ -47,7 +47,7 @@ void enqueue(struct Queue* queue, tcb* item)
     }
     Node* new_tail = malloc(sizeof(Node));
     new_tail->value = item;
-    queue->tail->next = new_tail;
+    queue->tail->next = (struct Node*) new_tail;
     queue->tail = new_tail;
     queue->size = queue->size + 1;
 }
@@ -72,7 +72,7 @@ tcb* dequeue(struct Queue* queue)
         return item;
     }
     Node* item = queue->head;
-    queue->head = queue->head->next;
+    queue->head = (Node*) queue->head->next;
     queue->size = queue->size - 1;
     tcb* val = item->value; 
     free(item); 
@@ -80,7 +80,7 @@ tcb* dequeue(struct Queue* queue)
 }
  
 // Function to get front of queue
-tcb* front(struct Queue* queue)
+Node* front(struct Queue* queue)
 {
     if (isEmpty(queue))
         return NULL;
@@ -88,7 +88,7 @@ tcb* front(struct Queue* queue)
 }
  
 // Function to get rear of queue
-tcb* rear(struct Queue* queue)
+Node* rear(struct Queue* queue)
 {
     if (isEmpty(queue))
         return NULL;
@@ -106,14 +106,14 @@ tcb* tcb_by_id(struct Queue* queue, unsigned int target_id) {
         if (current->value && current->value->id == target_id) {
             return current->value;
         }
-        current = current->next;
+        current = (Node*) current->next;
     } 
     return NULL;
 }
 
 void remove_by_id(struct Queue* queue, unsigned int target_id) {
     if (isEmpty(queue)) {
-        return NULL;
+        return;
     }
     Node* current = queue->head;
     Node* previous = NULL;
@@ -121,7 +121,7 @@ void remove_by_id(struct Queue* queue, unsigned int target_id) {
     int count = 0;
     while (current->value->id != target_id && current->next != NULL ) {
         previous = current;
-        current = current->next;
+        current = (Node*) current->next;
     } 
     if (current->value->id == target_id) {
         if (queue->size == 1) {
@@ -139,7 +139,7 @@ void remove_by_id(struct Queue* queue, unsigned int target_id) {
         }
         else{
             if(current == queue->head){
-                queue->head = current->next; 
+                queue->head = (Node*) current->next; 
             }
             else{
                 previous->next = current->next;
@@ -148,6 +148,32 @@ void remove_by_id(struct Queue* queue, unsigned int target_id) {
         }
         queue->size = queue->size - 1;
     }
+}
+
+int all_done(struct Queue* queue) {
+    if(isEmpty(queue)) {
+        return 1;
+    }
+    Node* current = front(queue);
+    while (current && current->value) {
+        if (current->value->status != DONE) {
+            return 0;
+        }
+        current = (Node*) current->next;
+    }
+    return 1;
+}
+
+void destroy_queue(struct Queue* queue) {
+   if(isEmpty(queue)) {
+        return;
+    }
+    Node* current = front(queue);
+    while (current && current->value) {
+        free(current->value);
+        current = (Node*) current->next;
+    }
+    return; 
 }
 
 void print(struct Queue* queue) {
@@ -160,7 +186,7 @@ void print(struct Queue* queue) {
     while (current->value != NULL) {
         printf("%d > " , current->value->id);
         if (current->next == NULL) {break;}
-        current = current->next;
+        current = (Node*) current->next;
     }
     printf("done \n\n");
 }

@@ -6,7 +6,7 @@
 #include "mypthread.h"
 #include "queue.h"
 
-#define QUANTUM 50 //if the time quantum is rlly big, everything works fine
+#define QUANTUM 300 //if the time quantum is rlly big, everything works fine
 #define DEBUG 0
 
 // INITIALIZE ALL YOUR VARIABLES HERE
@@ -43,14 +43,9 @@ void switch_to_scheduler() {
     return; 
   }
 
-  // if (tcb_by_id(ready_queue, active->id) != NULL) {
-  //   printf("switching to context %d \n", active->id);
-  //   swapcontext(&active->context, &scheduler->context);
-  // } 
-
   //set status of current thread to READY if it was running
   //otherwise, (if BLOCKED), don't override status
-  if(active!= NULL){
+  if(active != NULL){
     if(DEBUG){
       printf("active is not null\n");
       printf("active thread id: %d\n", active->id); 
@@ -98,7 +93,6 @@ int mypthread_create(mypthread_t *thread, pthread_attr_t *attr,
     
     signal(SIGVTALRM, switch_to_scheduler); // i think we only need to set this the once
     
-    // SET UP A TIMER (FIX THIS!! make a static global var, check every time we're in the sched)
     // set itimer
     timer.it_value.tv_usec = QUANTUM;
     timer.it_value.tv_sec = 0;
@@ -126,7 +120,7 @@ int mypthread_create(mypthread_t *thread, pthread_attr_t *attr,
   *thread = current_id;
   new_tcb->id = current_id;
   current_id++; 
-	makecontext(&new_tcb->context, function, 1, arg);
+	makecontext(&new_tcb->context, (void (*)(void)) function, 1, arg);
   new_tcb->status = READY;
   new_tcb->exit_status = NULL; 
   new_tcb->quantums_run = 0; 
@@ -138,8 +132,7 @@ int mypthread_create(mypthread_t *thread, pthread_attr_t *attr,
     print(ready_queue);
   }
 
-  // switch to the schedulers thread
-  // swapcontext(&waiting_context, &scheduler->context); 
+  // we have pushed the thread onto the ready queue so return 
   if(DEBUG){
     printf("returning from mypthread_create\n");
   }
@@ -149,13 +142,10 @@ int mypthread_create(mypthread_t *thread, pthread_attr_t *attr,
 /* current thread voluntarily surrenders its remaining runtime for other threads
  * to use */
 int mypthread_yield() {
-  // change current thread's state from Running to Ready
-  // main context of this thread to its thread control block
-  // switch from this thread's context to the scheduler's context
   if(DEBUG){
     printf("yielding and going back to scheduler \n");
   }
-  //this is only called from within a running thread
+  // manually call the scheduler 
   switch_to_scheduler(); 
   if(DEBUG){
     printf("returning from yield\n"); 
@@ -172,15 +162,14 @@ void mypthread_exit(void *value_ptr) {
     printf("calling exit\n"); 
   }
   if (active == NULL) {
-    printf("going back to the scheduler context \n");
+    if (DEBUG) {
+      printf("There is no active thread to exit on! \n");
+    }
     setcontext(&scheduler->context);
   }
 
   active->status = DONE;
   active->exit_status = value_ptr; 
-  //should we leave the thread on the queue?? at which point do we free all the ready queue?
-
-  // active = NULL;
 
   if(DEBUG){
     printf("going back from exit \n");
@@ -189,6 +178,14 @@ void mypthread_exit(void *value_ptr) {
     }
   }
   mypthread_mutex_unlock(&sched_mutex); 
+
+  // here we can check it everything is done and then free all the memory
+  if (all_done(ready_queue)) {
+    destroy_queue(ready_queue);
+    free(scheduler);
+    scheduler = NULL;
+  }
+
   if(waiting){
     setcontext(&waiting_context);
   }
@@ -213,7 +210,6 @@ int mypthread_join(mypthread_t thread, void **value_ptr) {
     while(target->status!=DONE){
       waiting = 1; 
       switch_to_scheduler(); 
-      //swapcontext(&waiting_context, &scheduler->context); 
     }
     //now the target status is done
     if(value_ptr!= NULL){
@@ -225,7 +221,7 @@ int mypthread_join(mypthread_t thread, void **value_ptr) {
     return 0; 
 
   }
-  else{
+  else{ // we enter here when the thread to join isnt found
     if(DEBUG){
       printf("thread to join not found %d\n",(uint) thread); 
       print(ready_queue);
@@ -274,12 +270,6 @@ int mypthread_mutex_lock(mypthread_mutex_t *mutex) {
   }
   //obtained the lock
   mutex->locking_thread = active; 
-  // if(DEBUG){
-  //   if(mutex->locked){
-  //     printf("mutex locked\n"); 
-  //   }
-  //   printf("got the lock! thread id:%d\n",mutex->locking_thread->id); 
-  // }
   return 0;
 };
 
