@@ -3,7 +3,7 @@ CFLAGS = -g -c
 AR = ar -rc
 RANLIB = ranlib
 
-SCHED = RR
+SCHED = PSJF
 
 all: queue.o mypthread.a
 

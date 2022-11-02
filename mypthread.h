@@ -42,11 +42,10 @@ typedef struct threadControlBlock
 	// thread priority
 	int quantums_run;
 
-
 	//MAYBE: 
 	// nonzero if any thread called join on this one
-	uint waiting_id; 
-	ucontext_t waiting_context;
+	// uint waiting_id; 
+	// ucontext_t waiting_context;
 	// exit status of this thread
 	int *exit_status; 
 

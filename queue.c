@@ -74,7 +74,9 @@ tcb* dequeue(struct Queue* queue)
     Node* item = queue->head;
     queue->head = queue->head->next;
     queue->size = queue->size - 1;
-    return item->value;
+    tcb* val = item->value; 
+    free(item); 
+    return val;
 }
  
 // Function to get front of queue
@@ -98,16 +100,14 @@ tcb* tcb_by_id(struct Queue* queue, unsigned int target_id) {
         return NULL;
     }
     Node* current = queue->head;
-    int max = queue->size;
-    int count = 0;
-    while (current->next != NULL) {
-        current = current->next;
-
+    // int max = queue->size;
+    // int count = 0;
+    while (current != NULL) {
         if (current->value && current->value->id == target_id) {
             return current->value;
         }
+        current = current->next;
     } 
-
     return NULL;
 }
 
@@ -138,7 +138,13 @@ void remove_by_id(struct Queue* queue, unsigned int target_id) {
             }
         }
         else{
-            previous->next = current->next;
+            if(current == queue->head){
+                queue->head = current->next; 
+            }
+            else{
+                previous->next = current->next;
+            }
+            free(current); 
         }
         queue->size = queue->size - 1;
     }
@@ -146,7 +152,7 @@ void remove_by_id(struct Queue* queue, unsigned int target_id) {
 
 void print(struct Queue* queue) {
     if (isEmpty(queue)) {
-        printf("queue is empty \n");
+        printf("\nqueue is empty!! \n");
         return;
     }
     Node* current = queue->head;

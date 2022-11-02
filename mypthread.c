@@ -6,8 +6,8 @@
 #include "mypthread.h"
 #include "queue.h"
 
-#define QUANTUM 10 //if the time quantum is rlly big, everything works fine
-#define DEBUG 1
+#define QUANTUM 50 //if the time quantum is rlly big, everything works fine
+#define DEBUG 0
 
 // INITIALIZE ALL YOUR VARIABLES HERE
 // YOUR CODE HERE
@@ -20,26 +20,33 @@ static uint current_id = 0; // maintain increasing id #'s starting from 0 for sc
 static struct Queue* ready_queue;
 static int thread_count = 0; // number of threads created
 static struct itimerval timer; 
+static struct itimerval curr_timer; 
+static struct itimerval no_timer; 
+static mypthread_mutex_t sched_mutex; 
 
-//TEMP for testing purposes!!!
-void sighand(){
-  printf("\nsignal!!!!! \n"); 
-  switch_to_scheduler(); 
-}
+// //TEMP for testing purposes!!!
+// void sighand(){
+//   printf("\nsignal!!!!! \n"); 
+//   switch_to_scheduler(); 
+// }
 
 void switch_to_scheduler() {
+  setitimer(ITIMER_VIRTUAL, &no_timer, &curr_timer); 
   if (active == NULL) {
     if (DEBUG) {
-      printf("active is null, going back to waiting_context \n");
+      printf("active is null \n");
+    }
+    if(waiting){
+      //someone has called join
+      swapcontext(&waiting_context, &scheduler->context);
     }
     return; 
-    //swapcontext(&waiting_context, &scheduler->context);
   }
 
-  if (tcb_by_id(ready_queue, active->id) != NULL) {
-    printf("switching to context %d \n", active->id);
-    swapcontext(&active->context, &scheduler->context);
-  } 
+  // if (tcb_by_id(ready_queue, active->id) != NULL) {
+  //   printf("switching to context %d \n", active->id);
+  //   swapcontext(&active->context, &scheduler->context);
+  // } 
 
   //set status of current thread to READY if it was running
   //otherwise, (if BLOCKED), don't override status
@@ -55,9 +62,17 @@ void switch_to_scheduler() {
       active->status = READY; 
     }
     enqueue(ready_queue, active); //add this to the end of the queue
+    setitimer(ITIMER_VIRTUAL, &curr_timer, NULL);
+    if(curr_timer.it_value.tv_sec == 0 && curr_timer.it_value.tv_usec == 0){
+      setitimer(ITIMER_VIRTUAL, &timer, NULL); 
+    }
     swapcontext(&active->context, &scheduler->context);
   }
   else{
+    setitimer(ITIMER_VIRTUAL, &curr_timer, NULL);
+    if(curr_timer.it_value.tv_sec == 0 && curr_timer.it_value.tv_usec == 0){
+      setitimer(ITIMER_VIRTUAL, &timer, NULL); 
+    }
     setcontext(&scheduler->context); 
   }
 }
@@ -75,11 +90,13 @@ int mypthread_create(mypthread_t *thread, pthread_attr_t *attr,
     new_tcb->context.uc_stack.ss_sp = new_tcb->stack;
 	  new_tcb->context.uc_stack.ss_size = sizeof(new_tcb->stack);
     new_tcb->id = current_id++; // the scheduler is id 0
+    new_tcb->exit_status = NULL; 
+    new_tcb->quantums_run = 0; 
     makecontext(&new_tcb->context, schedule, 0);
     scheduler = new_tcb;
     ready_queue = createQueue();
-
-    signal(SIGALRM, sighand); // i think we only need to set this the once
+    
+    signal(SIGVTALRM, switch_to_scheduler); // i think we only need to set this the once
     
     // SET UP A TIMER (FIX THIS!! make a static global var, check every time we're in the sched)
     // set itimer
@@ -87,7 +104,13 @@ int mypthread_create(mypthread_t *thread, pthread_attr_t *attr,
     timer.it_value.tv_sec = 0;
     timer.it_interval.tv_sec = 0;
     timer.it_interval.tv_usec = 0;
-    setitimer(ITIMER_REAL, &timer, NULL); 
+    setitimer(ITIMER_VIRTUAL, &timer, NULL); 
+
+    //no_timer.it_value = 0;
+    no_timer.it_value.tv_usec = 0;
+    no_timer.it_value.tv_sec = 0;
+    no_timer.it_interval.tv_sec = 0;
+    no_timer.it_interval.tv_usec = 0;
   }
 
   // create a Thread Control Block
@@ -105,6 +128,8 @@ int mypthread_create(mypthread_t *thread, pthread_attr_t *attr,
   current_id++; 
 	makecontext(&new_tcb->context, function, 1, arg);
   new_tcb->status = READY;
+  new_tcb->exit_status = NULL; 
+  new_tcb->quantums_run = 0; 
 
   // after everything is all set, push this thread into the ready queue
   enqueue(ready_queue, new_tcb);
@@ -142,6 +167,7 @@ int mypthread_yield() {
 void mypthread_exit(void *value_ptr) {
   // preserve the return value pointer if not NULL
   // deallocate any dynamic memory allocated when starting this thread
+  mypthread_mutex_lock(&sched_mutex); 
   if(DEBUG){
     printf("calling exit\n"); 
   }
@@ -154,17 +180,20 @@ void mypthread_exit(void *value_ptr) {
   active->exit_status = value_ptr; 
   //should we leave the thread on the queue?? at which point do we free all the ready queue?
 
-  active = NULL;
+  // active = NULL;
 
   if(DEBUG){
-    printf("going back to the scheduler from exit \n");
+    printf("going back from exit \n");
+    if(active->exit_status!=NULL){
+      printf("%d\n", *active->exit_status); 
+    }
   }
-
+  mypthread_mutex_unlock(&sched_mutex); 
   if(waiting){
     setcontext(&waiting_context);
   }
   else{
-    setcontext(&scheduler->context); 
+    switch_to_scheduler(); 
   }
   return; 
 };
@@ -173,6 +202,7 @@ void mypthread_exit(void *value_ptr) {
 int mypthread_join(mypthread_t thread, void **value_ptr) {
   if(DEBUG){
     printf("looking for id %d\n", (uint) thread); 
+    printf("queue size: %d", queueSize(ready_queue)); 
   }
   tcb* target = tcb_by_id(ready_queue,(uint) thread);
   
@@ -182,10 +212,10 @@ int mypthread_join(mypthread_t thread, void **value_ptr) {
     }
     while(target->status!=DONE){
       waiting = 1; 
-      swapcontext(&waiting_context, &scheduler->context); 
+      switch_to_scheduler(); 
+      //swapcontext(&waiting_context, &scheduler->context); 
     }
     //now the target status is done
-    //DO STUFF
     if(value_ptr!= NULL){
       *value_ptr = target->exit_status; 
     }
@@ -198,6 +228,7 @@ int mypthread_join(mypthread_t thread, void **value_ptr) {
   else{
     if(DEBUG){
       printf("thread to join not found %d\n",(uint) thread); 
+      print(ready_queue);
     }
     return -1; //thread to join not found
   }
@@ -227,28 +258,28 @@ int mypthread_mutex_lock(mypthread_mutex_t *mutex) {
   // if the mutex is acquired successfully, return
   // if acquiring mutex fails, put the current thread on the blocked/waiting
   // list and context switch to the scheduler thread
-  if(DEBUG){
-    if(mutex->locked){
-      printf("mutex already locked\n"); 
-    }
-  }
+  // if(DEBUG){
+  //   if(mutex->locked){
+  //     printf("mutex already locked\n"); 
+  //   }
+  // }
   while(__atomic_test_and_set(&mutex->locked, __ATOMIC_RELAXED)){
     enqueue(mutex->waiting, active); 
     active->status = BLOCKED; 
-    if(DEBUG){
-      printf("already acquired by thread id%d\n", mutex->locking_thread->id); 
-    }
+    // if(DEBUG){
+    //   printf("already acquired by thread id%d\n", mutex->locking_thread->id); 
+    // }
     //called from within a running thread
     switch_to_scheduler(); 
   }
   //obtained the lock
   mutex->locking_thread = active; 
-  if(DEBUG){
-    if(mutex->locked){
-      printf("mutex locked\n"); 
-    }
-    printf("got the lock! thread id:%d\n",mutex->locking_thread->id); 
-  }
+  // if(DEBUG){
+  //   if(mutex->locked){
+  //     printf("mutex locked\n"); 
+  //   }
+  //   printf("got the lock! thread id:%d\n",mutex->locking_thread->id); 
+  // }
   return 0;
 };
 
@@ -268,9 +299,9 @@ int mypthread_mutex_unlock(mypthread_mutex_t *mutex) {
         first->status = READY; 
       }
     }
-    if(DEBUG){
-      printf("released the lock!\n"); 
-    }
+    // if(DEBUG){
+    //   printf("released the lock!\n"); 
+    // }
     return 0;
   }
   // this wasn't the locking thread
@@ -292,11 +323,7 @@ int mypthread_mutex_destroy(mypthread_mutex_t *mutex) {
 
 /* scheduler */
 static void schedule() {
-  struct itimerval current; 
-  getitimer(ITIMER_REAL, &current); 
-  if(current.it_value.tv_sec == 0 && current.it_value.tv_usec == 0){
-    setitimer(ITIMER_REAL, &timer, NULL); 
-  }
+  setitimer(ITIMER_VIRTUAL, &no_timer, &curr_timer); 
   // each time a timer signal occurs your library should switch in to this
   // context
 
@@ -308,9 +335,11 @@ static void schedule() {
   }
   while(ready_queue!= NULL && !isEmpty(ready_queue)){
     #ifdef RR
+      setitimer(ITIMER_VIRTUAL, &curr_timer, NULL); 
       sched_RR(); 
     #endif
     #ifdef PSJF
+      setitimer(ITIMER_VIRTUAL, &curr_timer, NULL); 
       sched_PSJF(); 
     #endif
   }
@@ -318,6 +347,7 @@ static void schedule() {
 
 /* Round Robin scheduling algorithm */
 static void sched_RR() {
+  setitimer(ITIMER_VIRTUAL, &no_timer, &curr_timer); 
   // Your own implementation of RR
   // (feel free to modify arguments and return types)
 
@@ -325,11 +355,12 @@ static void sched_RR() {
   if(DEBUG){
     printf("taking a process off of the ready queue in RR \n");
   }
+  tcb * tmp; 
 
-  while((active = dequeue(ready_queue)) != NULL && active->status != READY){
-    enqueue(ready_queue, active); 
+  while((tmp = dequeue(ready_queue)) != NULL && tmp->status != READY){
+    enqueue(ready_queue, tmp); 
   }
-  if (active == NULL) {
+  if (tmp == NULL) {
     if(DEBUG){
       printf("no more ready threads \n");
     }
@@ -337,12 +368,15 @@ static void sched_RR() {
   }
 
   if(DEBUG){
-    printf("switching to: %d\n", active->id);
+    printf("switching to: %d\n", tmp->id);
+    printf("queue size: %d\n", queueSize(ready_queue)); 
     print(ready_queue);
   }
 
   // swap context to thread
+  active = tmp; 
   active->status = RUNNING; 
+  setitimer(ITIMER_VIRTUAL, &curr_timer, NULL); 
   swapcontext(&scheduler->context, &active->context);
   if(DEBUG){
     printf("this is the last line of the RR scheduler \n");
@@ -355,6 +389,7 @@ static void sched_PSJF() {
   // (feel free to modify arguments and return types)
 
   // take a process off of the ready queue and make it run for a little bit
+  setitimer(ITIMER_VIRTUAL, &no_timer, &curr_timer); 
   if(DEBUG){
     printf("taking a process off of the ready queue in PSJF \n");
   }
@@ -399,6 +434,7 @@ static void sched_PSJF() {
 
   active->status = RUNNING; 
   ++active->quantums_run; 
+  setitimer(ITIMER_VIRTUAL, &curr_timer, NULL); 
   swapcontext(&scheduler->context, &active->context);
   return;
 }

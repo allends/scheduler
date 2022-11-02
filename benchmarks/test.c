@@ -74,8 +74,8 @@ int main(int argc, char **argv) {
 	mypthread_create(&mthread2, NULL, test_mutexes2, NULL);
 
 	printf("calling join\n");
-	int ** ret_val; 
-	mypthread_join(mthread2, ret_val);
+	int * ret_val; 
+	mypthread_join(mthread2, &ret_val);
 	mypthread_join(mthread1, NULL);
 
 	// mypthread_t thread1;
@@ -89,7 +89,7 @@ int main(int argc, char **argv) {
 	// mypthread_join(thread3, NULL);
 	// mypthread_join(thread2, NULL);
 	// mypthread_join(thread1, NULL);
-	printf("retval %d\n", **ret_val); 
+	printf("retval %d\n", *ret_val); 
 	printf("returning from test bench :) \n");
 	return 0;
 }
