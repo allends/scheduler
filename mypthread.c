@@ -6,7 +6,7 @@
 #include "mypthread.h"
 #include "queue.h"
 
-#define QUANTUM 300 //if the time quantum is rlly big, everything works fine
+#define QUANTUM 1 //if the time quantum is rlly big, everything works fine
 #define DEBUG 0
 
 // INITIALIZE ALL YOUR VARIABLES HERE
